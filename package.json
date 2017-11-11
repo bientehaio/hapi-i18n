@@ -27,16 +27,17 @@
   },
   "homepage": "https://github.com/codeva/hapi-i18n",
   "devDependencies": {
-    "hapi": "^8.4.0",
-    "jade": "^1.9.2",
-    "joi": "^6.6.1",
-    "mocha": "^2.2.1",
-    "should": "^5.2.0"
+    "boom": "^7.1.1",
+    "hapi": "^17.0.0",
+    "joi": "^13.0.1",
+    "mocha": "^4.0.1",
+    "pug": "^2.0.0-beta11",
+    "should": "^13.1.3",
+    "vision": "^5.1.0"
   },
   "dependencies": {
-    "boom": "^2.6.1",
-    "hoek": "^2.11.1",
-    "i18n": "^0.5.0",
-    "lodash": "^3.5.0"
+    "hoek": "^5.0.0",
+    "i18n": "^0.8.3",
+    "lodash": "^4.17.4"
   }
 }

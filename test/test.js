@@ -1,365 +1,293 @@
-var Should = require("should");
-var Hapi = require("hapi");
-var Path = require("path");
-var Joi = require("joi");
-var Locale = require("../");
+const Should = require('should')
+const Hapi = require('hapi')
+const Path = require('path')
+const Joi = require('joi')
+const _ = require('lodash')
+const Locale = require('../index')
 
-describe("Localization", function () {
-  describe("Usage of locale in hapi", function () {
+describe('Localization', function () {
+  describe('Usage of locale in hapi', function () {
+    const translateStringEn = "All's well that ends well."
+    const translateStringDe = 'Ende gut, alles gut.'
+    const translateStringFr = 'Tout est bien qui finit bien.'
 
-    var translateString_en = "All's well that ends well.";
-    var translateString_de = "Ende gut, alles gut.";
-    var translateString_fr = "Tout est bien qui finit bien.";
-
-    var doSomething = function (cb) {
-      var data = {
-        rows: []
-      }
-      for (i = 1; i < 100; ++i) {
-        data.rows.push(i);
-      }
-      var fs = require("fs");
-      var fileName = Path.join(__dirname, "database.json");
-      fs.writeFile(fileName, JSON.stringify(data), function (err) {
-        Should.not.exist(err);
-        cb();
-      });
-    }
-
-    var server = new Hapi.Server();
-    server.connection({port: 8047});
+    const server = Hapi.server({port: 8047})
+    server.register(require('vision'))
     server.views({
       engines: {
-        jade: require("jade")
+        jade: require('pug')
       },
-      path: Path.join(__dirname, "views")
-    });
+      path: Path.join(__dirname, 'views')
+    })
 
     server.route({
-      method: "GET",
-      path: "/no/language-code/path/parameter",
-      handler: function (request, reply) {
-        doSomething(function () {
-          return reply(
-            {
-              locale: request.i18n.getLocale(),
-              message: request.i18n.__(translateString_en)
-            }
-          );
-        });
+      method: 'GET',
+      path: '/no/language-code/path/parameter',
+      handler: async (request) => {
+        return {
+          locale: request.i18n.getLocale(),
+          message: request.i18n.__(translateStringEn)
+        }
       }
-    });
+    })
     server.route({
-      method: "GET",
-      path: "/{languageCode}/localized/resource",
-      handler: function (request, reply) {
-        doSomething(function () {
-          return reply(
-            {
-              locale: request.i18n.getLocale(),
-              requestedLocale: request.params.languageCode,
-              message: request.i18n.__(translateString_en)
-            }
-          );
-        });
-
+      method: 'GET',
+      path: '/{languageCode}/localized/resource',
+      handler: async (request) => {
+        return {
+          locale: request.i18n.getLocale(),
+          requestedLocale: request.params.languageCode,
+          message: request.i18n.__(translateStringEn)
+        }
       }
-    });
+    })
     server.route({
-      method: "GET",
-      path: "/{languageCode}/localized/view",
-      handler: function (request, reply) {
-        doSomething(function () {
-          return reply.view("test");
-        });
-
+      method: 'GET',
+      path: '/{languageCode}/localized/view',
+      handler: async (request, h) => {
+        return h.view('test')
       }
-    });
+    })
     server.route({
-      method: "POST",
-      path: "/{languageCode}/localized/validation",
-      handler: function () {
+      method: 'POST',
+      path: '/{languageCode}/localized/validation',
+      handler: async () => {
       },
       config: {
         validate: {
           payload: {
             param: Joi.string().required()
           },
-          failAction: function (request, reply, source, error) {
-            return reply(request.i18n.__("Validation failed")).code(400);
+          failAction: function (request, h, error) {
+            return h.response(request.i18n.__('Validation failed')).code(400).takeover()
           }
         }
       }
-    });
+    })
     server.route({
-      method: "GET",
-      path: "/localized/with/headers",
-      handler: function (request, reply) {
-        doSomething(function () {
-          return reply(
-            {
-              locale: request.i18n.getLocale(),
-              requestedLocale: request.headers["language"],
-              message: request.i18n.__(translateString_en)
-            }
-          );
-        });
+      method: 'GET',
+      path: '/localized/with/headers',
+      handler: async (request) => {
+        return {
+          locale: request.i18n.getLocale(),
+          requestedLocale: request.headers['language'],
+          message: request.i18n.__(translateStringEn)
+        }
       }
-    });
+    })
 
     server.route({
-      method: "GET",
-      path: "/localized/with/query",
-      handler: function (request, reply) {
-        doSomething(function () {
-          return reply(
-            {
-              locale: request.i18n.getLocale(),
-              requestedLocale: request.query["lang"],
-              message: request.i18n.__(translateString_en)
-            }
-          );
-        });
+      method: 'GET',
+      path: '/localized/with/query',
+      handler: async (request) => {
+        return {
+          locale: request.i18n.getLocale(),
+          requestedLocale: request.query['lang'],
+          message: request.i18n.__(translateStringEn)
+        }
       }
-    });
+    })
 
-    it("can be added as plugin", function (done) {
-      server.register(
+    it('can be added as plugin', async () => {
+      const plugin = await server.register([
         {
-          register: Locale,
+          plugin: Locale,
           options: {
-            locales: ["de", "en", "fr"],
-            directory: __dirname + "/locales",
-            languageHeaderField: "language",
-            queryParameter: "lang",
+            locales: ['de', 'en', 'fr'],
+            directory: Path.join(__dirname, '/locales'),
+            languageHeaderField: 'language',
+            queryParameter: 'lang'
           }
-        },
-        function (err) {
-          Should.not.exist(err);
-          done();
-        }
-      );
-    });
+        }]
+      )
 
-    it("extracts the default locale from the configured locales", function () {
+      Should.equal(plugin, undefined)
+    })
+
+    it('extracts the default locale from the configured locales', function () {
       Should.throws(function () {
         Locale.extractDefaultLocale()
-      }, Error);
+      }, Error)
       Should.throws(function () {
         Locale.extractDefaultLocale([])
-      }, Error);
-      Locale.extractDefaultLocale(["fr", "de"]).should.equal("fr");
-    });
+      }, Error)
+      Locale.extractDefaultLocale(['fr', 'de']).should.equal('fr')
+    })
 
-    it("uses the default locale if no language code path parameter is available", function (done) {
-      server.inject(
+    it('uses the default locale if no language code path parameter is available', async () => {
+      const response = await server.inject(
         {
-          method: "GET",
-          url: "/no/language-code/path/parameter"
-        },
-        function (response) {
-          response.result.locale.should.equal("de");
-          response.result.message.should.equal(translateString_de);
-          done();
-        }
-      );
-    });
-
-    it("uses the requested locale if language code is provided", function (done) {
-      server.inject(
-        {
-          method: "GET",
-          url: "/fr/localized/resource"
-        },
-        function (response) {
-          response.result.locale.should.equal("fr");
-          response.result.requestedLocale.should.equal("fr");
-          response.result.message.should.equal(translateString_fr);
-          done();
-        }
-      );
-    });
-
-    it("uses the requested locale if language code is provided in headers", function (done) {
-      server.inject(
-        {
-          method: "GET",
-          url: "/localized/with/headers",
-          headers: {
-            "language": "fr"
-          }
-        },
-        function (response) {
-          response.result.locale.should.equal("fr");
-          response.result.requestedLocale.should.equal("fr");
-          response.result.message.should.equal(translateString_fr);
-          server.inject(
-            {
-              method: "GET",
-              url: "/localized/with/headers",
-              headers: {}
-            },
-            function (response) {
-              response.result.locale.should.equal("de");
-              response.result.message.should.equal(translateString_de);
-              done();
-            }
-          )
+          method: 'GET',
+          url: '/no/language-code/path/parameter'
         }
       )
+      response.result.locale.should.equal('de')
+      response.result.message.should.equal(translateStringDe)
     })
 
-    it("uses the language query parameter over the header parameter because this is more explicit", function (done) {
-      server.inject(
+    it('uses the requested locale if language code is provided', async () => {
+      const response = await server.inject(
         {
-          method: "GET",
-          url: "/localized/with/query?lang=fr",
-        },
-        function (response) {
-          response.result.locale.should.equal("fr");
-          response.result.requestedLocale.should.equal("fr");
-          response.result.message.should.equal(translateString_fr);
-          done();
+          method: 'GET',
+          url: '/fr/localized/resource'
         }
-      );
-    });
+      )
 
-    it("uses the language path parameter over the header parameter because this is more explicit", function (done) {
-      server.inject(
+      response.result.locale.should.equal('fr')
+      response.result.requestedLocale.should.equal('fr')
+      response.result.message.should.equal(translateStringFr)
+    })
+
+    it('uses the requested locale if language code is provided in headers', async () => {
+      let response = await server.inject(
         {
-          method: "GET",
-          url: "/fr/localized/resource",
+          method: 'GET',
+          url: '/localized/with/headers',
           headers: {
-            "language": "en"
+            'language': 'fr'
           }
-        },
-        function (response) {
-          response.result.locale.should.equal("fr");
-          response.result.requestedLocale.should.equal("fr");
-          response.result.message.should.equal(translateString_fr);
-          done();
         }
-      );
-    });
+      )
 
-    it("translates localized strings in jade templates", function (done) {
-      server.inject(
+      response.result.locale.should.equal('fr')
+      response.result.requestedLocale.should.equal('fr')
+      response.result.message.should.equal(translateStringFr)
+
+      response = await server.inject(
         {
-          method: "GET",
-          url: "/fr/localized/view"
-        },
-        function (response) {
-          response.statusCode.should.equal(200);
-          response.result.should.equal("<!DOCTYPE html><html lang=\"fr\"><body><p>Tout est bien qui finit bien.</p></body></html>");
-          done();
+          method: 'GET',
+          url: '/localized/with/headers',
+          headers: {}
         }
-      );
-    });
+      )
 
-    it("returns status code NOT-FOUND if the requested locale is not available", function (done) {
-      server.inject(
-        {
-          method: "GET",
-          url: "/en-US/localized/resource"
-        },
-        function (response) {
-          response.result.statusCode.should.equal(404);
-          response.result.message.should.equal("No localization available for en-US");
-          done();
-        }
-      );
-    });
-
-    it("is available in the validation failAction handler ", function (done) {
-      server.inject(
-        {
-          method: "POST",
-          url: "/de/localized/validation"
-        },
-        function (response) {
-          response.statusCode.should.equal(400);
-          response.result.should.equal("Prüfung fehlgeschlagen");
-          done();
-        }
-      );
-    });
-
-    it("must asure correct localization when processing requests concurrently", function (done) {
-      var numIterations = 200;
-      var numRequestsPerIteration = 3;
-      var numProcessedRequests = 0;
-      var numTotalRequests = numIterations * numRequestsPerIteration;
-      var numErrorsWrongDefaultLocale = 0;
-      var numErrorsWrongTranslation = 0;
-      var numErrorsWrongRequestedLocale = 0;
-      this.timeout(numTotalRequests * 10);
-      for (iteration = 0; iteration < numIterations; ++iteration) {
-
-        var onLastResponse = function () {
-          numProcessedRequests.should.equal(numTotalRequests);
-          numErrorsWrongDefaultLocale.should.equal(0);
-          numErrorsWrongRequestedLocale.should.equal(0);
-          done();
-        }
-
-        server.inject(
-          {
-            method: "GET",
-            url: "/no/language-code/path/parameter"
-          },
-          function (response) {
-            if (response.result.locale !== "de") {
-              ++numErrorsWrongDefaultLocale;
-            }
-            if (response.result.message !== translateString_de) {
-              ++numErrorsWrongTranslation;
-            }
-            ++numProcessedRequests;
-            if (numProcessedRequests == numTotalRequests) {
-              onLastResponse();
-            }
-          }
-        );
-
-        server.inject(
-          {
-            method: "GET",
-            url: "/en/localized/resource"
-          },
-          function (response) {
-            if (response.result.locale !== "en") {
-              ++numErrorsWrongRequestedLocale;
-            }
-            if (response.result.message !== translateString_en) {
-              ++numErrorsWrongTranslation;
-            }
-            response.result.requestedLocale.should.equal("en");
-            ++numProcessedRequests;
-            if (numProcessedRequests == numTotalRequests) {
-              onLastResponse();
-            }
-          }
-        );
-
-        server.inject(
-          {
-            method: "GET",
-            url: "/fr/localized/resource"
-          },
-          function (response) {
-            if (response.result.locale !== "fr") {
-              ++numErrorsWrongRequestedLocale;
-            }
-            response.result.requestedLocale.should.equal("fr");
-            ++numProcessedRequests;
-            if (numProcessedRequests == numTotalRequests) {
-              onLastResponse();
-            }
-          }
-        );
-      }
+      response.result.locale.should.equal('de')
+      response.result.message.should.equal(translateStringDe)
     })
 
-  })
+    it('uses the language query parameter over the header parameter because this is more explicit', async () => {
+      const response = await server.inject(
+        {
+          method: 'GET',
+          url: '/localized/with/query?lang=fr'
+        }
+      )
 
+      response.result.locale.should.equal('fr')
+      response.result.requestedLocale.should.equal('fr')
+      response.result.message.should.equal(translateStringFr)
+    })
+
+    it('uses the language path parameter over the header parameter because this is more explicit', async () => {
+      const response = await server.inject(
+        {
+          method: 'GET',
+          url: '/fr/localized/resource',
+          headers: {
+            'language': 'en'
+          }
+        }
+      )
+
+      response.result.locale.should.equal('fr')
+      response.result.requestedLocale.should.equal('fr')
+      response.result.message.should.equal(translateStringFr)
+    })
+
+    it('translates localized strings in jade templates', async () => {
+      const response = await server.inject(
+        {
+          method: 'GET',
+          url: '/fr/localized/view'
+        }
+      )
+
+      response.statusCode.should.equal(200)
+      response.result.should.equal('<!DOCTYPE html><html lang="fr"><body><p>Tout est bien qui finit bien.</p></body></html>')
+    })
+
+    it('returns status code NOT-FOUND if the requested locale is not available', async () => {
+      const response = await server.inject(
+        {
+          method: 'GET',
+          url: '/en-US/localized/resource'
+        }
+      )
+
+      response.result.statusCode.should.equal(404)
+      response.result.message.should.equal('No localization available for en-US')
+    })
+
+    it('is available in the validation failAction handler ', async () => {
+      const response = await server.inject(
+        {
+          method: 'POST',
+          url: '/de/localized/validation'
+        }
+      )
+
+      response.statusCode.should.equal(400)
+      response.result.should.equal('Prüfung fehlgeschlagen')
+    })
+
+    it('must a sure correct localization when processing requests concurrently', async () => {
+      const numIterations = 200
+      const numRequestsPerIteration = 3
+      const numTotalRequests = numIterations * numRequestsPerIteration
+      let numProcessedRequests = 0
+      let numErrorsWrongDefaultLocale = 0
+      let numErrorsWrongTranslation = 0
+      let numErrorsWrongRequestedLocale = 0
+
+      const requests = _.flatten(Array.apply(null, {length: numIterations}).map(() => {
+        return [
+          new Promise(resolve => {
+            server.inject({ method: 'GET', url: '/no/language-code/path/parameter' })
+              .then(response => {
+                if (response.result.locale !== 'de') {
+                  ++numErrorsWrongDefaultLocale
+                }
+                if (response.result.message !== translateStringDe) {
+                  ++numErrorsWrongTranslation
+                }
+                numProcessedRequests++
+                response.result.locale.should.equal('de')
+                resolve(response)
+              })
+          }),
+          new Promise(resolve => {
+            server.inject({ method: 'GET', url: '/en/localized/resource' })
+              .then(response => {
+                if (response.result.locale !== 'en') {
+                  ++numErrorsWrongRequestedLocale
+                }
+                if (response.result.message !== translateStringEn) {
+                  ++numErrorsWrongTranslation
+                }
+                numProcessedRequests++
+                response.result.locale.should.equal('en')
+                resolve(response)
+              })
+          }),
+          new Promise(resolve => {
+            server.inject({ method: 'GET', url: '/fr/localized/resource' })
+              .then(response => {
+                if (response.result.locale !== 'fr') {
+                  ++numErrorsWrongRequestedLocale
+                }
+                numProcessedRequests++
+                response.result.locale.should.equal('fr')
+                resolve(response)
+              })
+          })
+        ]
+      }))
+
+      await Promise.all(requests)
+
+      numProcessedRequests.should.equal(numTotalRequests)
+      numErrorsWrongDefaultLocale.should.equal(0)
+      numErrorsWrongRequestedLocale.should.equal(0)
+    })
+  })
 })
